@@ -81,11 +81,35 @@ void InitGameplayScreen(void) {
 }
 
 void UpdateBullets(void) {
+  int *invalidBullets = MemAlloc(sizeof(int));
+  int numInvalid = 0;
+
   for (int i = 0; i < numBullets; i++) {
     Vector2 newPosVec = Vector2Rotate(
-        Vector2Scale((Vector2){10, 0}, GetFrameTime()), -bullets[i].dir);
+        Vector2Scale((Vector2){20, 0}, GetFrameTime()), -bullets[i].dir);
     bullets[i].pos = Vector2Add(bullets[i].pos, newPosVec);
+    int bulletX = bullets[i].pos.x + 20;
+    int bulletY = bullets[i].pos.y + 11;
+    if ((bulletX > 40) || (bulletX < 0) || (bulletY > 22) || (bulletY < 0)) {
+      invalidBullets[numInvalid] = i;
+      numInvalid++;
+      invalidBullets =
+          MemRealloc(invalidBullets, sizeof(int) * (numInvalid + 1));
+    }
   }
+
+  // Remove bullets from heap
+  int offset = 0;
+  for (int i = 0; i < numInvalid; i++) {
+    int removeIndex = invalidBullets[i] + offset;
+    for (int j = removeIndex; j < numBullets - 1; j++) {
+      bullets[j] = bullets[j + 1];
+    }
+    numBullets--;
+    MemRealloc(invalidBullets, sizeof(int) * (numInvalid + 1));
+    offset--;
+  }
+  MemFree(invalidBullets);
 }
 
 // Gameplay Screen Update logic
@@ -172,6 +196,7 @@ void DrawGameplayScreen(void) {
            WHITE);
   DrawText(TextFormat("Player: %f %f", playerPos.pos.x, playerPos.pos.y), 5, 95,
            30, WHITE);
+  DrawText(TextFormat("Bullets: %d", numBullets), 5, 125, 30, WHITE);
 }
 
 // Gameplay Screen Unload logic
