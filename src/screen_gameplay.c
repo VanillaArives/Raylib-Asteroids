@@ -57,6 +57,7 @@ static playerPos_t playerPos;
 static bulletEntity_t *bullets;
 static int numBullets;
 static float fireRate = 0.4;
+static Vector2 mousePos;
 
 //----------------------------------------------------------------------------------
 // Gameplay Screen Functions Definition
@@ -69,7 +70,7 @@ void InitGameplayScreen(void) {
   finishScreen = 0;
   camera.fovy = 60;
   camera.target = (Vector3){0, 0, 0};
-  camera.position = (Vector3){5, 20, 0};
+  camera.position = (Vector3){0, 20, 1};
   camera.up = (Vector3){0, 1, 0};
   camera.projection = CAMERA_PERSPECTIVE;
   playerPos.pos = Vector2Zero();
@@ -90,6 +91,9 @@ void UpdateBullets(void) {
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void) {
   // TODO: Update GAMEPLAY screen variables here!
+  SetMouseScale(40.0 / GetScreenWidth(), 22.0 / GetScreenHeight());
+  SetMouseOffset(-GetScreenWidth() / 2, -GetScreenHeight() / 2);
+  mousePos = GetMousePosition();
 
   UpdateBullets();
   // Press enter or tap to change to ENDING screen
@@ -98,23 +102,28 @@ void UpdateGameplayScreen(void) {
     PlaySound(fxCoin);
   }
   if (IsKeyDown(KEY_UP)) {
-    playerPos.pos.x -= 10.0f * GetFrameTime();
-  }
-  if (IsKeyDown(KEY_DOWN)) {
-    playerPos.pos.x += 10.0f * GetFrameTime();
-  }
-  if (IsKeyDown(KEY_LEFT)) {
-    playerPos.pos.y += 10.0f * GetFrameTime();
-  }
-  if (IsKeyDown(KEY_RIGHT)) {
     playerPos.pos.y -= 10.0f * GetFrameTime();
   }
-  if (IsKeyDown(KEY_Z)) {
-    playerPos.dir = Wrap(playerPos.dir - 10.0f * GetFrameTime(), 0, 2 * PI);
+  if (IsKeyDown(KEY_DOWN)) {
+    playerPos.pos.y += 10.0f * GetFrameTime();
   }
-  if (IsKeyDown(KEY_X)) {
-    playerPos.dir = Wrap(playerPos.dir + 10.0f * GetFrameTime(), 0, 2 * PI);
+  if (IsKeyDown(KEY_LEFT)) {
+    playerPos.pos.x -= 10.0f * GetFrameTime();
   }
+  if (IsKeyDown(KEY_RIGHT)) {
+    playerPos.pos.x += 10.0f * GetFrameTime();
+  }
+  /* if (IsKeyDown(KEY_Z)) { */
+  /*   playerPos.dir = Wrap(playerPos.dir - 10.0f * GetFrameTime(), 0, 2 * PI);
+   */
+  /* } */
+  /* if (IsKeyDown(KEY_X)) { */
+  /*   playerPos.dir = Wrap(playerPos.dir + 10.0f * GetFrameTime(), 0, 2 * PI);
+   */
+  /* } */
+  /* playerPos.dir = Vector2Angle(mousePos, playerPos.pos) + PI; */
+  playerPos.dir =
+      Vector2Angle(Vector2Subtract(mousePos, playerPos.pos), ((Vector2){1, 0}));
   if ((playerPos.cooldown <= 0) && IsKeyDown(KEY_SPACE)) {
     bulletEntity_t bullet;
     bullet.pos = playerPos.pos;
@@ -143,6 +152,10 @@ void DrawGameplayScreen(void) {
   DrawCube(playerPosition, 1, 1, 1, BLUE);
   DrawCubeWires(playerPosition, 1, 1, 1, WHITE);
 
+  Vector3 mouse = (Vector3){mousePos.x, 0, mousePos.y};
+  DrawCube(mouse, 1, 1, 1, PURPLE);
+  DrawCubeWires(mouse, 1, 1, 1, WHITE);
+
   Vector3 lookingVec =
       Vector3Add(playerPosition,
                  Vector3RotateByAxisAngle(UNIT3_VEC, UP_VEC, playerPos.dir));
@@ -153,8 +166,12 @@ void DrawGameplayScreen(void) {
     DrawCube(bulletPos, 1, 1, 1, RED);
   }
   EndMode3D();
-  DrawText(TextFormat("Yaw: %f", playerPos.dir), 5, 5, 10, WHITE);
-  DrawText(TextFormat("Cooldown: %f", playerPos.cooldown), 5, 15, 10, WHITE);
+  DrawText(TextFormat("Yaw: %f", playerPos.dir), 5, 5, 30, WHITE);
+  DrawText(TextFormat("Cooldown: %f", playerPos.cooldown), 5, 35, 30, WHITE);
+  DrawText(TextFormat("Mouse: %f %f", mousePos.x, mousePos.y), 5, 65, 30,
+           WHITE);
+  DrawText(TextFormat("Player: %f %f", playerPos.pos.x, playerPos.pos.y), 5, 95,
+           30, WHITE);
 }
 
 // Gameplay Screen Unload logic
