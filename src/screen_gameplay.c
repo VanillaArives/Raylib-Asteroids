@@ -37,11 +37,12 @@
 //----------------------------------------------------------------------------------
 
 static const Vector3 UP_VEC = (Vector3){0, 1, 0};
-static const Vector3 UNIT_VEC = (Vector3){1, 0, 0};
+static const Vector3 UNIT3_VEC = (Vector3){1, 0, 0};
 
 typedef struct playerPos_t {
   Vector2 pos;
   float dir;
+  float cooldown;
 } playerPos_t;
 
 typedef struct bulletEntity_t {
@@ -55,6 +56,7 @@ static Camera3D camera = {0};
 static playerPos_t playerPos;
 static bulletEntity_t *bullets;
 static int numBullets;
+static float fireRate = 0.4;
 
 //----------------------------------------------------------------------------------
 // Gameplay Screen Functions Definition
@@ -72,6 +74,7 @@ void InitGameplayScreen(void) {
   camera.projection = CAMERA_PERSPECTIVE;
   playerPos.pos = Vector2Zero();
   playerPos.dir = 0.0f;
+  playerPos.cooldown = fireRate;
   bullets = MemAlloc(sizeof(bulletEntity_t) + 1);
   numBullets = 0;
 }
@@ -79,7 +82,7 @@ void InitGameplayScreen(void) {
 void UpdateBullets(void) {
   for (int i = 0; i < numBullets; i++) {
     Vector2 newPosVec = Vector2Rotate(
-        Vector2Scale((Vector2){10, 0}, GetFrameTime()), bullets[i].dir);
+        Vector2Scale((Vector2){10, 0}, GetFrameTime()), -bullets[i].dir);
     bullets[i].pos = Vector2Add(bullets[i].pos, newPosVec);
   }
 }
@@ -107,18 +110,23 @@ void UpdateGameplayScreen(void) {
     playerPos.pos.y -= 10.0f * GetFrameTime();
   }
   if (IsKeyDown(KEY_Z)) {
-    playerPos.dir += 10.0f * GetFrameTime();
+    playerPos.dir = Wrap(playerPos.dir - 10.0f * GetFrameTime(), 0, 2 * PI);
   }
   if (IsKeyDown(KEY_X)) {
-    playerPos.dir -= 10.0f * GetFrameTime();
+    playerPos.dir = Wrap(playerPos.dir + 10.0f * GetFrameTime(), 0, 2 * PI);
   }
-  if (IsKeyDown(KEY_SPACE)) {
+  if ((playerPos.cooldown <= 0) && IsKeyDown(KEY_SPACE)) {
     bulletEntity_t bullet;
     bullet.pos = playerPos.pos;
     bullet.dir = playerPos.dir;
     bullets[numBullets] = bullet;
     numBullets++;
     bullets = MemRealloc(bullets, sizeof(bulletEntity_t) * (numBullets + 1));
+    playerPos.cooldown = fireRate;
+  }
+
+  if (playerPos.cooldown > 0) {
+    playerPos.cooldown -= GetFrameTime();
   }
 }
 
@@ -137,14 +145,16 @@ void DrawGameplayScreen(void) {
 
   Vector3 lookingVec =
       Vector3Add(playerPosition,
-                 Vector3RotateByAxisAngle(UNIT_VEC, UP_VEC, playerPos.dir));
+                 Vector3RotateByAxisAngle(UNIT3_VEC, UP_VEC, playerPos.dir));
   DrawLine3D(playerPosition, lookingVec, RED);
 
   for (int i = 0; i < numBullets; i++) {
     Vector3 bulletPos = (Vector3){bullets[i].pos.x, 0, bullets[i].pos.y};
-    DrawCube(bulletPos, 1, 1, 5, RED);
+    DrawCube(bulletPos, 1, 1, 1, RED);
   }
   EndMode3D();
+  DrawText(TextFormat("Yaw: %f", playerPos.dir), 5, 5, 10, WHITE);
+  DrawText(TextFormat("Cooldown: %f", playerPos.cooldown), 5, 15, 10, WHITE);
 }
 
 // Gameplay Screen Unload logic
