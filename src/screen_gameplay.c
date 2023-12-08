@@ -31,6 +31,7 @@
 #include "raymath.h"
 #include "screens.h"
 #define BULLET_SPEED 5
+#define radToDegree(rad) (rad * 360 / (2 * PI))
 
 //----------------------------------------------------------------------------------
 // Module Variables Definition (local)
@@ -46,6 +47,7 @@ typedef struct playerPos_t {
 } playerPos_t;
 
 typedef struct bulletEntity_t {
+  Model bulletModel;
   Vector2 pos;
   float dir;
 } bulletEntity_t;
@@ -120,6 +122,7 @@ void UpdateBullets(void) {
   int offset = 0;
   for (int i = 0; i < numInvalid; i++) {
     int removeIndex = invalidBullets[i] + offset;
+    UnloadModel(bullets[removeIndex].bulletModel);
     for (int j = removeIndex; j < numBullets - 1; j++) {
       bullets[j] = bullets[j + 1];
     }
@@ -158,31 +161,23 @@ void UpdateGameplayScreen(void) {
     finishScreen = 1;
     PlaySound(fxCoin);
   }
-  if (IsKeyDown(KEY_UP)) {
+  if (IsKeyDown(KEY_W)) {
     playerPos.pos.y -= 10.0f * GetFrameTime();
   }
-  if (IsKeyDown(KEY_DOWN)) {
+  if (IsKeyDown(KEY_S)) {
     playerPos.pos.y += 10.0f * GetFrameTime();
   }
-  if (IsKeyDown(KEY_LEFT)) {
+  if (IsKeyDown(KEY_A)) {
     playerPos.pos.x -= 10.0f * GetFrameTime();
   }
-  if (IsKeyDown(KEY_RIGHT)) {
+  if (IsKeyDown(KEY_D)) {
     playerPos.pos.x += 10.0f * GetFrameTime();
   }
-  /* if (IsKeyDown(KEY_Z)) { */
-  /*   playerPos.dir = Wrap(playerPos.dir - 10.0f * GetFrameTime(), 0, 2 * PI);
-   */
-  /* } */
-  /* if (IsKeyDown(KEY_X)) { */
-  /*   playerPos.dir = Wrap(playerPos.dir + 10.0f * GetFrameTime(), 0, 2 * PI);
-   */
-  /* } */
-  /* playerPos.dir = Vector2Angle(mousePos, playerPos.pos) + PI; */
   playerPos.dir =
       Vector2Angle(Vector2Subtract(mousePos, playerPos.pos), ((Vector2){1, 0}));
   if ((playerPos.cooldown <= 0) && IsKeyDown(KEY_SPACE)) {
     bulletEntity_t bullet;
+    bullet.bulletModel = LoadModelFromMesh(GenMeshCube(0.25, 0.25, 2.0));
     bullet.pos = playerPos.pos;
     bullet.dir = playerPos.dir;
     bullets[numBullets] = bullet;
@@ -198,7 +193,6 @@ void UpdateGameplayScreen(void) {
 
 // Gameplay Screen Draw logic
 void DrawGameplayScreen(void) {
-  // TODO: Draw GAMEPLAY screen here!
   /* DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), PURPLE); */
   ClearBackground(BLACK);
   // DrawTextEx(font, "GAMEPLAY SCREEN", pos, font.baseSize * 3.0f, 4,
@@ -220,7 +214,8 @@ void DrawGameplayScreen(void) {
 
   for (int i = 0; i < numBullets; i++) {
     Vector3 bulletPos = (Vector3){bullets[i].pos.x, 0, bullets[i].pos.y};
-    DrawCube(bulletPos, 1, 1, 1, RED);
+    DrawModelEx(bullets[i].bulletModel, bulletPos, UP_VEC,
+                radToDegree(bullets[i].dir) + 90, Vector3One(), RED);
   }
 
   Vector3 rockPos = (Vector3){rocks[0].pos.x, 0, rocks[0].pos.y};
@@ -236,10 +231,7 @@ void DrawGameplayScreen(void) {
 }
 
 // Gameplay Screen Unload logic
-void UnloadGameplayScreen(void) {
-  // TODO: Unload GAMEPLAY screen variables here!
-  MemFree(bullets);
-}
+void UnloadGameplayScreen(void) { MemFree(bullets); }
 
 // Gameplay Screen should finish?
 int FinishGameplayScreen(void) { return finishScreen; }
