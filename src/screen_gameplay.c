@@ -50,12 +50,21 @@ typedef struct bulletEntity_t {
   float dir;
 } bulletEntity_t;
 
+typedef struct rockEntity_t {
+  Vector2 pos;
+  float dir;
+  float speed;
+  float lifeTime;
+} rockEntity_t;
+
 static int framesCounter = 0;
 static int finishScreen = 0;
 static Camera3D camera = {0};
 static playerPos_t playerPos;
 static bulletEntity_t *bullets;
 static int numBullets;
+static rockEntity_t *rocks;
+static int numRocks;
 static float fireRate = 0.4;
 static Vector2 mousePos;
 
@@ -76,8 +85,17 @@ void InitGameplayScreen(void) {
   playerPos.pos = Vector2Zero();
   playerPos.dir = 0.0f;
   playerPos.cooldown = fireRate;
-  bullets = MemAlloc(sizeof(bulletEntity_t) + 1);
+  bullets = MemAlloc(sizeof(bulletEntity_t));
+  rocks = MemAlloc(sizeof(rockEntity_t));
   numBullets = 0;
+
+  rocks[0] = (rockEntity_t){
+      .pos = Vector2Zero(),
+      .dir = 0,
+      .speed = 5.0,
+      .lifeTime = 5.0,
+  };
+  numRocks = 1;
 }
 
 void UpdateBullets(void) {
@@ -112,6 +130,20 @@ void UpdateBullets(void) {
   MemFree(invalidBullets);
 }
 
+void UpdateRocks() {
+  for (int i = 0; i < numRocks; i++) {
+    Vector2 dRockPos = Vector2Rotate(
+        (Vector2){rocks[i].speed * GetFrameTime(), 0}, rocks[i].dir);
+    rocks[i].pos = Vector2Add(rocks[i].pos, dRockPos);
+
+    rocks[i].lifeTime -= GetFrameTime();
+
+    if (rocks[i].lifeTime < 0) {
+      // bruh;
+    }
+  }
+}
+
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void) {
   // TODO: Update GAMEPLAY screen variables here!
@@ -120,6 +152,7 @@ void UpdateGameplayScreen(void) {
   mousePos = GetMousePosition();
 
   UpdateBullets();
+  UpdateRocks();
   // Press enter or tap to change to ENDING screen
   if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP)) {
     finishScreen = 1;
@@ -189,6 +222,9 @@ void DrawGameplayScreen(void) {
     Vector3 bulletPos = (Vector3){bullets[i].pos.x, 0, bullets[i].pos.y};
     DrawCube(bulletPos, 1, 1, 1, RED);
   }
+
+  Vector3 rockPos = (Vector3){rocks[0].pos.x, 0, rocks[0].pos.y};
+  DrawCube(rockPos, 1, 1, 1, GRAY);
   EndMode3D();
   DrawText(TextFormat("Yaw: %f", playerPos.dir), 5, 5, 30, WHITE);
   DrawText(TextFormat("Cooldown: %f", playerPos.cooldown), 5, 35, 30, WHITE);
