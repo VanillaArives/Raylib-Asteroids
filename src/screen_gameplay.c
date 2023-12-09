@@ -40,19 +40,21 @@
 static const Vector3 UP_VEC = (Vector3){0, 1, 0};
 static const Vector3 UNIT3_VEC = (Vector3){1, 0, 0};
 
-typedef struct playerPos_t {
+typedef struct playerEntity_t {
+  Model model;
   Vector2 pos;
   float dir;
   float cooldown;
 } playerPos_t;
 
 typedef struct bulletEntity_t {
-  Model bulletModel;
+  Model model;
   Vector2 pos;
   float dir;
 } bulletEntity_t;
 
 typedef struct rockEntity_t {
+  Model model;
   Vector2 pos;
   float dir;
   float speed;
@@ -62,7 +64,7 @@ typedef struct rockEntity_t {
 static int framesCounter = 0;
 static int finishScreen = 0;
 static Camera3D camera = {0};
-static playerPos_t playerPos;
+static playerPos_t playerEntity;
 static bulletEntity_t *bullets;
 static int numBullets;
 static rockEntity_t *rocks;
@@ -76,7 +78,6 @@ static Vector2 mousePos;
 
 // Gameplay Screen Initialization logic
 void InitGameplayScreen(void) {
-  // TODO: Initialize GAMEPLAY screen variables here!
   framesCounter = 0;
   finishScreen = 0;
   camera.fovy = 60;
@@ -84,14 +85,20 @@ void InitGameplayScreen(void) {
   camera.position = (Vector3){0, 20, 1};
   camera.up = (Vector3){0, 1, 0};
   camera.projection = CAMERA_PERSPECTIVE;
-  playerPos.pos = Vector2Zero();
-  playerPos.dir = 0.0f;
-  playerPos.cooldown = fireRate;
+
+  Mesh playerMesh = GenMeshCube(1, 1, 1);
+  playerEntity.model = LoadModelFromMesh(playerMesh);
+  /* UnloadMesh(playerMesh); */
+  playerEntity.pos = Vector2Zero();
+  playerEntity.dir = 0.0f;
+  playerEntity.cooldown = fireRate;
   bullets = MemAlloc(sizeof(bulletEntity_t));
   rocks = MemAlloc(sizeof(rockEntity_t));
   numBullets = 0;
 
+  Mesh rockMesh = GenMeshCube(4, 4, 4);
   rocks[0] = (rockEntity_t){
+      .model = LoadModelFromMesh(rockMesh),
       .pos = Vector2Zero(),
       .dir = 0,
       .speed = 5.0,
@@ -111,6 +118,7 @@ void UpdateBullets(void) {
     int bulletX = bullets[i].pos.x + 20;
     int bulletY = bullets[i].pos.y + 11;
     if ((bulletX > 40) || (bulletX < 0) || (bulletY > 22) || (bulletY < 0)) {
+      UnloadModel(bullets[i].model);
       invalidBullets[numInvalid] = i;
       numInvalid++;
       invalidBullets =
@@ -122,7 +130,6 @@ void UpdateBullets(void) {
   int offset = 0;
   for (int i = 0; i < numInvalid; i++) {
     int removeIndex = invalidBullets[i] + offset;
-    UnloadModel(bullets[removeIndex].bulletModel);
     for (int j = removeIndex; j < numBullets - 1; j++) {
       bullets[j] = bullets[j + 1];
     }
@@ -162,32 +169,36 @@ void UpdateGameplayScreen(void) {
     PlaySound(fxCoin);
   }
   if (IsKeyDown(KEY_W)) {
-    playerPos.pos.y -= 10.0f * GetFrameTime();
+    playerEntity.pos.y -= 10.0f * GetFrameTime();
   }
   if (IsKeyDown(KEY_S)) {
-    playerPos.pos.y += 10.0f * GetFrameTime();
+    playerEntity.pos.y += 10.0f * GetFrameTime();
   }
   if (IsKeyDown(KEY_A)) {
-    playerPos.pos.x -= 10.0f * GetFrameTime();
+    playerEntity.pos.x -= 10.0f * GetFrameTime();
   }
   if (IsKeyDown(KEY_D)) {
-    playerPos.pos.x += 10.0f * GetFrameTime();
+    playerEntity.pos.x += 10.0f * GetFrameTime();
   }
-  playerPos.dir =
-      Vector2Angle(Vector2Subtract(mousePos, playerPos.pos), ((Vector2){1, 0}));
-  if ((playerPos.cooldown <= 0) && IsKeyDown(KEY_SPACE)) {
+  playerEntity.dir = Vector2Angle(Vector2Subtract(mousePos, playerEntity.pos),
+                                  ((Vector2){1, 0}));
+  if ((playerEntity.cooldown <= 0) && IsKeyDown(KEY_SPACE)) {
     bulletEntity_t bullet;
-    bullet.bulletModel = LoadModelFromMesh(GenMeshCube(0.25, 0.25, 2.0));
-    bullet.pos = playerPos.pos;
-    bullet.dir = playerPos.dir;
+    Mesh bulletMesh = GenMeshCube(0.25, 0.25, 2.0);
+    bullet.model = LoadModelFromMesh(bulletMesh);
+
+    Vector2 spawnOffset = Vector2Rotate((Vector2){1, 0}, -playerEntity.dir);
+    Vector2 spawnVec = Vector2Add(playerEntity.pos, spawnOffset);
+    bullet.pos = spawnVec;
+    bullet.dir = playerEntity.dir;
     bullets[numBullets] = bullet;
     numBullets++;
     bullets = MemRealloc(bullets, sizeof(bulletEntity_t) * (numBullets + 1));
-    playerPos.cooldown = fireRate;
+    playerEntity.cooldown = fireRate;
   }
 
-  if (playerPos.cooldown > 0) {
-    playerPos.cooldown -= GetFrameTime();
+  if (playerEntity.cooldown > 0) {
+    playerEntity.cooldown -= GetFrameTime();
   }
 }
 
@@ -199,9 +210,13 @@ void DrawGameplayScreen(void) {
   // MAROON); DrawText("PRESS ENTER or TAP to JUMP to ENDING SCREEN", 130,
   // 220, 20, MAROON);
   BeginMode3D(camera);
-  Vector3 playerPosition = (Vector3){playerPos.pos.x, 0, playerPos.pos.y};
-  DrawCube(playerPosition, 1, 1, 1, BLUE);
-  DrawCubeWires(playerPosition, 1, 1, 1, WHITE);
+  Vector3 playerPosition = (Vector3){playerEntity.pos.x, 0, playerEntity.pos.y};
+  /* DrawCube(playerPosition, 1, 1, 1, BLUE); */
+  /* DrawCubeWires(playerPosition, 1, 1, 1, WHITE); */
+  DrawModelEx(playerEntity.model, playerPosition, UP_VEC,
+              radToDegree(playerEntity.dir), Vector3One(), BLUE);
+  DrawModelWiresEx(playerEntity.model, playerPosition, UP_VEC,
+                   radToDegree(playerEntity.dir), Vector3One(), WHITE);
 
   Vector3 mouse = (Vector3){mousePos.x, 0, mousePos.y};
   DrawCube(mouse, 1, 1, 1, PURPLE);
@@ -209,29 +224,33 @@ void DrawGameplayScreen(void) {
 
   Vector3 lookingVec =
       Vector3Add(playerPosition,
-                 Vector3RotateByAxisAngle(UNIT3_VEC, UP_VEC, playerPos.dir));
+                 Vector3RotateByAxisAngle(UNIT3_VEC, UP_VEC, playerEntity.dir));
   DrawLine3D(playerPosition, lookingVec, RED);
 
   for (int i = 0; i < numBullets; i++) {
     Vector3 bulletPos = (Vector3){bullets[i].pos.x, 0, bullets[i].pos.y};
-    DrawModelEx(bullets[i].bulletModel, bulletPos, UP_VEC,
+    DrawModelEx(bullets[i].model, bulletPos, UP_VEC,
                 radToDegree(bullets[i].dir) + 90, Vector3One(), RED);
   }
 
   Vector3 rockPos = (Vector3){rocks[0].pos.x, 0, rocks[0].pos.y};
-  DrawCube(rockPos, 1, 1, 1, GRAY);
+  /* DrawCube(rockPos, 1, 1, 1, GRAY); */
+  DrawModelEx(rocks[0].model, rockPos, UP_VEC, 0.0, Vector3One(), GRAY);
   EndMode3D();
-  DrawText(TextFormat("Yaw: %f", playerPos.dir), 5, 5, 30, WHITE);
-  DrawText(TextFormat("Cooldown: %f", playerPos.cooldown), 5, 35, 30, WHITE);
+  DrawText(TextFormat("Yaw: %f", playerEntity.dir), 5, 5, 30, WHITE);
+  DrawText(TextFormat("Cooldown: %f", playerEntity.cooldown), 5, 35, 30, WHITE);
   DrawText(TextFormat("Mouse: %f %f", mousePos.x, mousePos.y), 5, 65, 30,
            WHITE);
-  DrawText(TextFormat("Player: %f %f", playerPos.pos.x, playerPos.pos.y), 5, 95,
-           30, WHITE);
+  DrawText(TextFormat("Player: %f %f", playerEntity.pos.x, playerEntity.pos.y),
+           5, 95, 30, WHITE);
   DrawText(TextFormat("Bullets: %d", numBullets), 5, 125, 30, WHITE);
 }
 
 // Gameplay Screen Unload logic
-void UnloadGameplayScreen(void) { MemFree(bullets); }
+void UnloadGameplayScreen(void) {
+  MemFree(bullets);
+  UnloadModel(playerEntity.model);
+}
 
 // Gameplay Screen should finish?
 int FinishGameplayScreen(void) { return finishScreen; }
