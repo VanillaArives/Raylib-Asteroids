@@ -44,7 +44,7 @@ typedef struct playerEntity_t {
   Model model;
   Vector2 pos;
   float dir;
-  float cooldown;
+  float fireCooldown;
 } playerPos_t;
 
 typedef struct bulletEntity_t {
@@ -70,6 +70,7 @@ static int numBullets;
 static rockEntity_t *rocks;
 static int numRocks;
 static float fireRate = 0.4;
+static float rockSpawnCooldown = 4.0;
 static Vector2 mousePos;
 
 //----------------------------------------------------------------------------------
@@ -88,27 +89,18 @@ void InitGameplayScreen(void) {
 
   Mesh playerMesh = GenMeshCube(1, 1, 1);
   playerEntity.model = LoadModelFromMesh(playerMesh);
-  /* UnloadMesh(playerMesh); */
   playerEntity.pos = Vector2Zero();
   playerEntity.dir = 0.0f;
-  playerEntity.cooldown = fireRate;
+  playerEntity.fireCooldown = fireRate;
   bullets = MemAlloc(sizeof(bulletEntity_t));
   rocks = MemAlloc(sizeof(rockEntity_t));
   numBullets = 0;
 
-  Mesh rockMesh = GenMeshCube(4, 4, 4);
-  rocks[0] = (rockEntity_t){
-      .model = LoadModelFromMesh(rockMesh),
-      .pos = Vector2Zero(),
-      .dir = 0,
-      .speed = 5.0,
-      .lifeTime = 5.0,
-  };
-  numRocks = 1;
+  rockSpawnCooldown = 1.0;
 }
 
 void UpdateBullets(void) {
-  int *invalidBullets = MemAlloc(sizeof(int));
+  int *invalidBulletsIndex = MemAlloc(sizeof(int));
   int numInvalid = 0;
 
   for (int i = 0; i < numBullets; i++) {
@@ -119,44 +111,57 @@ void UpdateBullets(void) {
     int bulletY = bullets[i].pos.y + 11;
     if ((bulletX > 40) || (bulletX < 0) || (bulletY > 22) || (bulletY < 0)) {
       UnloadModel(bullets[i].model);
-      invalidBullets[numInvalid] = i;
+      invalidBulletsIndex[numInvalid] = i;
       numInvalid++;
-      invalidBullets =
-          MemRealloc(invalidBullets, sizeof(int) * (numInvalid + 1));
+      invalidBulletsIndex =
+          MemRealloc(invalidBulletsIndex, sizeof(int) * (numInvalid + 1));
     }
   }
 
   // Remove bullets from heap
   int offset = 0;
   for (int i = 0; i < numInvalid; i++) {
-    int removeIndex = invalidBullets[i] + offset;
+    int removeIndex = invalidBulletsIndex[i] + offset;
     for (int j = removeIndex; j < numBullets - 1; j++) {
       bullets[j] = bullets[j + 1];
     }
     numBullets--;
-    MemRealloc(invalidBullets, sizeof(int) * (numInvalid + 1));
     offset--;
   }
-  MemFree(invalidBullets);
+  MemFree(invalidBulletsIndex);
 }
 
 void UpdateRocks() {
+  int *invalidRocksIndex = MemAlloc(sizeof(int));
+  int numInvalid = 0;
   for (int i = 0; i < numRocks; i++) {
     Vector2 dRockPos = Vector2Rotate(
         (Vector2){rocks[i].speed * GetFrameTime(), 0}, rocks[i].dir);
     rocks[i].pos = Vector2Add(rocks[i].pos, dRockPos);
 
     rocks[i].lifeTime -= GetFrameTime();
-
     if (rocks[i].lifeTime < 0) {
-      // bruh;
+      invalidRocksIndex[numInvalid] = i;
+      numInvalid++;
+      invalidRocksIndex =
+          MemRealloc(invalidRocksIndex, sizeof(int) * (numInvalid + 1));
     }
   }
+
+  int offset = 0;
+  for (int i = 0; i < numInvalid; i++) {
+    int removeIndex = invalidRocksIndex[i] + offset;
+    for (int j = removeIndex; j < numRocks - 1; j++) {
+      rocks[j] = rocks[j + 1];
+    }
+    numRocks--;
+    offset--;
+  }
+  MemFree(invalidRocksIndex);
 }
 
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void) {
-  // TODO: Update GAMEPLAY screen variables here!
   SetMouseScale(40.0 / GetScreenWidth(), 22.0 / GetScreenHeight());
   SetMouseOffset(-GetScreenWidth() / 2, -GetScreenHeight() / 2);
   mousePos = GetMousePosition();
@@ -164,7 +169,7 @@ void UpdateGameplayScreen(void) {
   UpdateBullets();
   UpdateRocks();
   // Press enter or tap to change to ENDING screen
-  if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP)) {
+  if (IsKeyPressed(KEY_ENTER)) {
     finishScreen = 1;
     PlaySound(fxCoin);
   }
@@ -182,7 +187,7 @@ void UpdateGameplayScreen(void) {
   }
   playerEntity.dir = Vector2Angle(Vector2Subtract(mousePos, playerEntity.pos),
                                   ((Vector2){1, 0}));
-  if ((playerEntity.cooldown <= 0) && IsKeyDown(KEY_SPACE)) {
+  if ((playerEntity.fireCooldown <= 0) && IsKeyDown(KEY_SPACE)) {
     bulletEntity_t bullet;
     Mesh bulletMesh = GenMeshCube(0.25, 0.25, 2.0);
     bullet.model = LoadModelFromMesh(bulletMesh);
@@ -194,11 +199,28 @@ void UpdateGameplayScreen(void) {
     bullets[numBullets] = bullet;
     numBullets++;
     bullets = MemRealloc(bullets, sizeof(bulletEntity_t) * (numBullets + 1));
-    playerEntity.cooldown = fireRate;
+    playerEntity.fireCooldown = fireRate;
+  }
+  if (rockSpawnCooldown <= 0) {
+    Mesh rockMesh = GenMeshCube(4, 4, 4);
+    rocks[numRocks] = (rockEntity_t){
+        .model = LoadModelFromMesh(rockMesh),
+        .pos = Vector2Zero(),
+        .dir = 0,
+        .speed = 5.0,
+        .lifeTime = 5.0,
+    };
+    numRocks++;
+    rocks = MemRealloc(rocks, sizeof(rockEntity_t) * (numRocks + 1));
+    rockSpawnCooldown = 4.0;
   }
 
-  if (playerEntity.cooldown > 0) {
-    playerEntity.cooldown -= GetFrameTime();
+  float frameTime = GetFrameTime();
+  if (rockSpawnCooldown > 0) {
+    rockSpawnCooldown -= frameTime;
+  }
+  if (playerEntity.fireCooldown > 0) {
+    playerEntity.fireCooldown -= frameTime;
   }
 }
 
@@ -233,22 +255,26 @@ void DrawGameplayScreen(void) {
                 radToDegree(bullets[i].dir) + 90, Vector3One(), RED);
   }
 
-  Vector3 rockPos = (Vector3){rocks[0].pos.x, 0, rocks[0].pos.y};
-  /* DrawCube(rockPos, 1, 1, 1, GRAY); */
-  DrawModelEx(rocks[0].model, rockPos, UP_VEC, 0.0, Vector3One(), GRAY);
+  for (int i = 0; i < numRocks; i++) {
+    Vector3 rockPos = (Vector3){rocks[i].pos.x, 0, rocks[i].pos.y};
+    DrawModelEx(rocks[i].model, rockPos, UP_VEC, 0.0, Vector3One(), GRAY);
+  }
   EndMode3D();
   DrawText(TextFormat("Yaw: %f", playerEntity.dir), 5, 5, 30, WHITE);
-  DrawText(TextFormat("Cooldown: %f", playerEntity.cooldown), 5, 35, 30, WHITE);
+  DrawText(TextFormat("Cooldown: %f", playerEntity.fireCooldown), 5, 35, 30,
+           WHITE);
   DrawText(TextFormat("Mouse: %f %f", mousePos.x, mousePos.y), 5, 65, 30,
            WHITE);
   DrawText(TextFormat("Player: %f %f", playerEntity.pos.x, playerEntity.pos.y),
            5, 95, 30, WHITE);
   DrawText(TextFormat("Bullets: %d", numBullets), 5, 125, 30, WHITE);
+  DrawText(TextFormat("Rocks: %d", numRocks), 5, 155, 30, WHITE);
 }
 
 // Gameplay Screen Unload logic
 void UnloadGameplayScreen(void) {
   MemFree(bullets);
+  MemFree(rocks);
   UnloadModel(playerEntity.model);
 }
 
