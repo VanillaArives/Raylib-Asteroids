@@ -64,6 +64,7 @@ dkms.conf
 compile_commands.json
 
 Session.vim
+raylib_game
 
 # Build folder
 [Bb]uild
