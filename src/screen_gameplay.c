@@ -55,10 +55,12 @@ typedef struct bulletEntity_t {
 
 typedef struct rockEntity_t {
   Model model;
+  float radius;
   Vector2 pos;
   float dir;
   float speed;
   float lifeTime;
+  bool status;
 } rockEntity_t;
 
 static int framesCounter = 0;
@@ -141,6 +143,7 @@ void UpdateRocks() {
 
     rocks[i].lifeTime -= GetFrameTime();
     if (rocks[i].lifeTime < 0) {
+      UnloadModel(rocks[i].model);
       invalidRocksIndex[numInvalid] = i;
       numInvalid++;
       invalidRocksIndex =
@@ -160,6 +163,18 @@ void UpdateRocks() {
   MemFree(invalidRocksIndex);
 }
 
+void CheckEntityCollisions(void) {
+  for (int bulletIndex = 0; bulletIndex < numBullets; bulletIndex++) {
+    for (int rockIndex = 0; rockIndex < numRocks; rockIndex++) {
+      if (CheckCollisionPointCircle(bullets[bulletIndex].pos,
+                                    rocks[rockIndex].pos,
+                                    rocks[rockIndex].radius)) {
+        rocks[rockIndex].status = true;
+      }
+    }
+  }
+}
+
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void) {
   SetMouseScale(40.0 / GetScreenWidth(), 22.0 / GetScreenHeight());
@@ -168,6 +183,7 @@ void UpdateGameplayScreen(void) {
 
   UpdateBullets();
   UpdateRocks();
+  CheckEntityCollisions();
   // Press enter or tap to change to ENDING screen
   if (IsKeyPressed(KEY_ENTER)) {
     finishScreen = 1;
@@ -202,13 +218,16 @@ void UpdateGameplayScreen(void) {
     playerEntity.fireCooldown = fireRate;
   }
   if (rockSpawnCooldown <= 0) {
-    Mesh rockMesh = GenMeshCube(4, 4, 4);
+    float radius = GetRandomValue(0, 10) / 8.0 + 2.5;
+    Mesh rockMesh = GenMeshSphere(radius, 10, 10);
     rocks[numRocks] = (rockEntity_t){
         .model = LoadModelFromMesh(rockMesh),
+        .radius = radius,
         .pos = Vector2Zero(),
         .dir = 0,
         .speed = 5.0,
         .lifeTime = 5.0,
+        .status = false,
     };
     numRocks++;
     rocks = MemRealloc(rocks, sizeof(rockEntity_t) * (numRocks + 1));
@@ -216,12 +235,8 @@ void UpdateGameplayScreen(void) {
   }
 
   float frameTime = GetFrameTime();
-  if (rockSpawnCooldown > 0) {
-    rockSpawnCooldown -= frameTime;
-  }
-  if (playerEntity.fireCooldown > 0) {
-    playerEntity.fireCooldown -= frameTime;
-  }
+  rockSpawnCooldown -= frameTime;
+  playerEntity.fireCooldown -= frameTime;
 }
 
 // Gameplay Screen Draw logic
@@ -256,8 +271,10 @@ void DrawGameplayScreen(void) {
   }
 
   for (int i = 0; i < numRocks; i++) {
+    Color rockColor = (rocks[i].status) ? RED : GRAY;
     Vector3 rockPos = (Vector3){rocks[i].pos.x, 0, rocks[i].pos.y};
-    DrawModelEx(rocks[i].model, rockPos, UP_VEC, 0.0, Vector3One(), GRAY);
+    DrawModelEx(rocks[i].model, rockPos, UP_VEC, 0.0, Vector3One(), rockColor);
+    DrawModelWiresEx(rocks[i].model, rockPos, UP_VEC, 0.0, Vector3One(), WHITE);
   }
   EndMode3D();
   DrawText(TextFormat("Yaw: %f", playerEntity.dir), 5, 5, 30, WHITE);
