@@ -75,6 +75,11 @@ static float fireRate = 0.4;
 static float rockSpawnCooldown = 4.0;
 static Vector2 mousePos;
 
+static const Vector3 g0 = (Vector3){-22, 0, -12};
+static const Vector3 g1 = (Vector3){22, 0, -12};
+static const Vector3 g2 = (Vector3){22, 0, 12};
+static const Vector3 g3 = (Vector3){-22, 0, 12};
+
 //----------------------------------------------------------------------------------
 // Gameplay Screen Functions Definition
 //----------------------------------------------------------------------------------
@@ -177,9 +182,13 @@ void CheckEntityCollisions(void) {
 
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void) {
-  SetMouseScale(40.0 / GetScreenWidth(), 22.0 / GetScreenHeight());
-  SetMouseOffset(-GetScreenWidth() / 2, -GetScreenHeight() / 2);
-  mousePos = GetMousePosition();
+  /* SetMouseScale(40.0 / GetScreenWidth(), 22.0 / GetScreenHeight()); */
+  /* SetMouseOffset(-GetScreenWidth() / 2, -GetScreenHeight() / 2); */
+  /* mousePos = GetMousePosition(); */
+
+  Ray mouseRay = GetMouseRay(GetMousePosition(), camera);
+  RayCollision groundHit = GetRayCollisionQuad(mouseRay, g0, g1, g2, g3);
+  mousePos = (Vector2){groundHit.point.x, groundHit.point.z};
 
   UpdateBullets();
   UpdateRocks();
