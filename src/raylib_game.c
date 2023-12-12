@@ -77,6 +77,8 @@ int main(void) {
   // Setup and init first screen
   currentScreen = TITLE;
   /* InitLogoScreen(); */
+  /* ToggleFullscreen(); */
+  SetTraceLogLevel(LOG_ALL);
 
 #if defined(PLATFORM_WEB)
   emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
