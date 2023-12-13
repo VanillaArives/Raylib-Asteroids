@@ -194,6 +194,16 @@ void UpdateGameplayScreen(void) {
   UpdateRocks();
   CheckEntityCollisions();
   // Press enter or tap to change to ENDING screen
+  if (IsKeyPressed(KEY_F)) {
+    if (IsWindowFullscreen()) {
+      SetWindowSize(800, 450);
+      ToggleFullscreen();
+    } else {
+      int monitor = GetCurrentMonitor();
+      SetWindowSize(GetMonitorHeight(monitor), GetMonitorWidth(monitor));
+      ToggleFullscreen();
+    }
+  }
   if (IsKeyPressed(KEY_ENTER)) {
     finishScreen = 1;
     PlaySound(fxCoin);
