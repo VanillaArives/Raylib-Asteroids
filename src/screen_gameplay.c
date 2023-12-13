@@ -75,6 +75,8 @@ static float fireRate = 0.4;
 static float rockSpawnCooldown = 4.0;
 static Vector2 mousePos;
 
+static Texture2D crosshairTexture;
+
 static const Vector3 g0 = (Vector3){-22, 0, -12};
 static const Vector3 g1 = (Vector3){22, 0, -12};
 static const Vector3 g2 = (Vector3){22, 0, 12};
@@ -104,6 +106,9 @@ void InitGameplayScreen(void) {
   numBullets = 0;
 
   rockSpawnCooldown = 1.0;
+
+  Image crosshairImg = LoadImage("./resources/crosshair.png");
+  crosshairTexture = LoadTextureFromImage(crosshairImg);
 }
 
 void UpdateBullets(void) {
@@ -222,7 +227,8 @@ void UpdateGameplayScreen(void) {
   }
   playerEntity.dir = Vector2Angle(Vector2Subtract(mousePos, playerEntity.pos),
                                   ((Vector2){1, 0}));
-  if ((playerEntity.fireCooldown <= 0) && IsKeyDown(KEY_SPACE)) {
+  if ((playerEntity.fireCooldown <= 0) &&
+      (IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_LEFT_BUTTON))) {
     bulletEntity_t bullet;
     Mesh bulletMesh = GenMeshCube(0.25, 0.25, 2.0);
     bullet.model = LoadModelFromMesh(bulletMesh);
@@ -274,10 +280,6 @@ void DrawGameplayScreen(void) {
   DrawModelWiresEx(playerEntity.model, playerPosition, UP_VEC,
                    radToDegree(playerEntity.dir), Vector3One(), WHITE);
 
-  Vector3 mouse = (Vector3){mousePos.x, 0, mousePos.y};
-  DrawCube(mouse, 1, 1, 1, PURPLE);
-  DrawCubeWires(mouse, 1, 1, 1, WHITE);
-
   Vector3 lookingVec =
       Vector3Add(playerPosition,
                  Vector3RotateByAxisAngle(UNIT3_VEC, UP_VEC, playerEntity.dir));
@@ -295,7 +297,14 @@ void DrawGameplayScreen(void) {
     DrawModelEx(rocks[i].model, rockPos, UP_VEC, 0.0, Vector3One(), rockColor);
     DrawModelWiresEx(rocks[i].model, rockPos, UP_VEC, 0.0, Vector3One(), WHITE);
   }
+
+  /* Vector3 mouse = (Vector3){mousePos.x, 0, mousePos.y}; */
+  Vector2 mouse = (Vector2){GetMouseX() - 16 * 2, GetMouseY() - 16 * 2};
+  /* DrawCube(mouse, 1, 1, 1, PURPLE); */
+  /* DrawCubeWires(mouse, 1, 1, 1, WHITE); */
+  /* DrawBillboard(camera, crosshairTexture, mouse, 20.0, RED); */
   EndMode3D();
+
   DrawText(TextFormat("Yaw: %f", playerEntity.dir), 5, 5, 30, WHITE);
   DrawText(TextFormat("Cooldown: %f", playerEntity.fireCooldown), 5, 35, 30,
            WHITE);
@@ -305,6 +314,7 @@ void DrawGameplayScreen(void) {
            5, 95, 30, WHITE);
   DrawText(TextFormat("Bullets: %d", numBullets), 5, 125, 30, WHITE);
   DrawText(TextFormat("Rocks: %d", numRocks), 5, 155, 30, WHITE);
+  DrawTextureEx(crosshairTexture, mouse, 0.0, 2.0, WHITE);
 }
 
 // Gameplay Screen Unload logic
